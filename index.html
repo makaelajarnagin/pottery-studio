@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>The Studio — A Pottery Wheel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* ═══ PALETTE — evening (default) ═══════════════════════════════════ */
+    :root {
+      --ui-fg: 212, 196, 168;   /* warm cream */
+      --ui-bg: 26, 20, 16;      /* deep umber */
+      --vignette: 18, 13, 10;
+    }
+    /* ═══ PALETTE — morning (light) ═════════════════════════════════════ */
+    body.morning {
+      --ui-fg: 74, 58, 44;      /* warm brown ink */
+      --ui-bg: 240, 234, 224;   /* linen */
+      --vignette: 200, 188, 172;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #1a1410;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      cursor: none;
+      transition: background 1.8s ease;
+      -webkit-user-select: none; user-select: none;
+      touch-action: none;
+    }
+    body.morning { background: #e8e0d4; }
+
+    #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; }
+
+    /* ═══ Vignette ═════════════════════════════════════════════════════ */
+    #vignette {
+      position: fixed; inset: 0; pointer-events: none; z-index: 2;
+      background: radial-gradient(ellipse 120% 110% at 48% 42%,
+        transparent 0%, transparent 46%,
+        rgba(var(--vignette), 0.14) 72%, rgba(var(--vignette), 0.52) 100%);
+      transition: opacity 1.8s ease;
+    }
+    body.morning #vignette { opacity: 0.5; }
+
+    /* ═══ Film grain ═══════════════════════════════════════════════════ */
+    #grain {
+      position: fixed; inset: 0; pointer-events: none; z-index: 3;
+      opacity: 0.045; mix-blend-mode: overlay;
+    }
+    body.morning #grain { opacity: 0.03; }
+
+    /* ═══ Cursor ═══════════════════════════════════════════════════════ */
+    #cursor {
+      position: fixed; width: 26px; height: 26px; border-radius: 50%;
+      border: 1px solid rgba(var(--ui-fg), 0.45);
+      transform: translate(-50%, -50%);
+      pointer-events: none; z-index: 8;
+      transition: width 0.25s ease, height 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+      mix-blend-mode: difference;
+    }
+    #cursor.touching {
+      width: 40px; height: 40px;
+      border-color: rgba(var(--ui-fg), 0.75);
+      background: radial-gradient(circle, rgba(var(--ui-fg), 0.12) 0%, transparent 62%);
+    }
+
+    /* ═══ Step label (top) ═════════════════════════════════════════════ */
+    #step {
+      position: fixed; top: 46px; left: 0; right: 0; z-index: 6;
+      text-align: center; pointer-events: none;
+    }
+    #step .count {
+      font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: 0.32em;
+      text-transform: uppercase; color: rgba(var(--ui-fg), 0.5);
+      margin-bottom: 8px;
+    }
+    #step .title {
+      font-size: 30px; font-weight: 500; letter-spacing: 0.01em;
+      color: rgba(var(--ui-fg), 0.92);
+    }
+    #step .title.swap { opacity: 0; transform: translateY(6px); }
+    #step .title { transition: opacity 0.5s ease, transform 0.5s ease; }
+
+    /* ═══ Hint + action bar (bottom center) ════════════════════════════ */
+    #dock {
+      position: fixed; left: 0; right: 0; bottom: 42px; z-index: 6;
+      display: flex; flex-direction: column; align-items: center; gap: 20px;
+      pointer-events: none;
+    }
+    #hint {
+      font-family: 'Cormorant Garamond', serif; font-style: italic;
+      font-size: 17px; color: rgba(var(--ui-fg), 0.6);
+      transition: opacity 0.5s ease; text-align: center; padding: 0 24px;
+    }
+    #hint.swap { opacity: 0; }
+    #actions { display: flex; align-items: center; gap: 12px; pointer-events: auto; }
+
+    /* ═══ Buttons ══════════════════════════════════════════════════════ */
+    .btn {
+      font-family: 'Inter', sans-serif; font-size: 11px; letter-spacing: 0.22em;
+      text-transform: uppercase; cursor: pointer;
+      padding: 12px 26px; border-radius: 2px;
+      border: 1px solid rgba(var(--ui-fg), 0.28);
+      background: rgba(var(--ui-bg), 0.4);
+      color: rgba(var(--ui-fg), 0.82);
+      backdrop-filter: blur(8px);
+      transition: border-color 0.3s ease, color 0.3s ease, background 0.3s ease, opacity 0.4s ease;
+    }
+    .btn:hover { border-color: rgba(var(--ui-fg), 0.6); color: rgba(var(--ui-fg), 1); }
+    .btn.primary {
+      border-color: rgba(var(--ui-fg), 0.5);
+      background: rgba(var(--ui-fg), 0.12);
+    }
+    .btn.ghost { border-color: transparent; background: transparent; }
+    .btn.ghost:hover { border-color: rgba(var(--ui-fg), 0.3); }
+    body.morning .btn { background: rgba(255, 253, 248, 0.6); color: rgba(var(--ui-fg), 0.9); }
+    body.morning .btn.primary { background: rgba(var(--ui-fg), 0.14); }
+
+    /* Glaze swatches */
+    .swatch {
+      width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+      border: 2px solid rgba(var(--ui-fg), 0.25);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+    .swatch:hover { transform: scale(1.12); }
+    .swatch.active { border-color: rgba(var(--ui-fg), 0.9); transform: scale(1.12); }
+
+    /* ═══ Corner chrome ════════════════════════════════════════════════ */
+    .ctrl {
+      position: fixed; z-index: 6; cursor: pointer;
+      width: 42px; height: 42px; border-radius: 50%;
+      border: 1px solid rgba(var(--ui-fg), 0.22);
+      background: rgba(var(--ui-bg), 0.35); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.3s ease, background 1.8s ease;
+    }
+    .ctrl:hover { border-color: rgba(var(--ui-fg), 0.55); }
+    body.morning .ctrl { border-color: rgba(var(--ui-fg), 0.4); background: rgba(255, 253, 248, 0.62); }
+    #mood-toggle { bottom: 30px; right: 30px; }
+    #sound-toggle { bottom: 80px; right: 30px; }
+    #restart { bottom: 30px; left: 30px; width: auto; height: 42px; border-radius: 2px; padding: 0 18px;
+      font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+      color: rgba(var(--ui-fg), 0.6); }
+    #restart:hover { color: rgba(var(--ui-fg), 0.95); }
+    .ctrl svg { width: 17px; height: 17px; }
+    #mood-toggle svg { fill: none; stroke: rgba(var(--ui-fg), 0.7); stroke-width: 1.5; stroke-linecap: round; transition: transform 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+    #mood-toggle:hover svg { transform: rotate(16deg); }
+    body.morning #mood-toggle svg { stroke: rgba(var(--ui-fg), 0.92); }
+    #mood-toggle.morning .moon { display: none; }
+    #mood-toggle:not(.morning) .sun { display: none; }
+    #sound-toggle svg { fill: rgba(var(--ui-fg), 0.7); }
+    body.morning #sound-toggle svg { fill: rgba(var(--ui-fg), 0.92); }
+    #sound-toggle.muted .on { display: none; }
+    #sound-toggle:not(.muted) .off { display: none; }
+
+    /* ═══ Intro ════════════════════════════════════════════════════════ */
+    #intro {
+      position: fixed; inset: 0; z-index: 7; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px;
+      background: rgba(var(--ui-bg), 0.0); pointer-events: none;
+      transition: opacity 1.4s ease;
+    }
+    #intro .big { font-size: 46px; font-weight: 500; color: rgba(var(--ui-fg), 0.95); font-style: italic; }
+    #intro .sub { font-family: 'Inter', sans-serif; font-size: 11px; letter-spacing: 0.3em;
+      text-transform: uppercase; color: rgba(var(--ui-fg), 0.55); }
+    #intro.fade { opacity: 0; }
+
+    @media (max-width: 640px) {
+      #step .title { font-size: 24px; }
+      #intro .big { font-size: 34px; }
+    }
+  </style>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <div id="vignette"></div>
+  <canvas id="grain"></canvas>
+  <div id="cursor"></div>
+
+  <div id="step">
+    <div class="count" id="step-count"></div>
+    <div class="title" id="step-title"></div>
+  </div>
+
+  <div id="dock">
+    <div id="hint"></div>
+    <div id="actions"></div>
+  </div>
+
+  <div id="intro">
+    <div class="big">the studio</div>
+    <div class="sub">a pottery wheel</div>
+  </div>
+
+  <button id="restart" class="ctrl" title="Start over">Start over</button>
+  <div id="sound-toggle" class="ctrl muted" title="Sound">
+    <svg class="on" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.8-1-3.3-2.5-4v8c1.5-.7 2.5-2.2 2.5-4zM14 3.2v2.1c2.9.9 5 3.5 5 6.7s-2.1 5.8-5 6.7v2.1c4-1 7-4.6 7-8.8s-3-7.8-7-8.8z"/></svg>
+    <svg class="off" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path d="M19 7l-1.4 1.4L19.2 10l-1.6 1.6L19 13l1.6-1.6L22.2 13l1.4-1.4L22 10l1.6-1.6L22.2 7l-1.6 1.6z" transform="translate(-4 2)"/></svg>
+  </div>
+  <div id="mood-toggle" class="ctrl" title="Light">
+    <svg class="moon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36A5.5 5.5 0 0 1 12 3z"/></svg>
+    <svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></svg>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+    // ── helpers ──────────────────────────────────────────────────────
+    const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+    // ── renderer / scene / camera ────────────────────────────────────
+    const canvas = document.getElementById('scene');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const scene = new THREE.Scene();
+    const EVENING_FOG = new THREE.Color(0x1d1611);
+    const MORNING_FOG = new THREE.Color(0xd8cdbb);
+    scene.fog = new THREE.Fog(EVENING_FOG.clone(), 15, 34);
+
+    const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100);
+    camera.position.set(0, 3.5, 9);
+
+    // ── environment (soft studio reflections) ────────────────────────
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.55;
+
+    // ── lights ───────────────────────────────────────────────────────
+    const key = new THREE.DirectionalLight(0xffe4b8, 2.3);
+    key.position.set(5.5, 9, 6.5);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.camera.near = 1; key.shadow.camera.far = 42;
+    key.shadow.camera.left = -9; key.shadow.camera.right = 9;
+    key.shadow.camera.top = 10; key.shadow.camera.bottom = -4;
+    key.shadow.bias = -0.0004; key.shadow.radius = 7;
+    scene.add(key);
+
+    const fill = new THREE.DirectionalLight(0x8294b8, 0.45);
+    fill.position.set(-6, 4, 4); scene.add(fill);
+
+    const rim = new THREE.DirectionalLight(0xfff1d8, 0.85);
+    rim.position.set(-4, 6.5, -7); scene.add(rim);
+
+    const hemi = new THREE.HemisphereLight(0xcdd8f0, 0x3a2b22, 0.45);
+    scene.add(hemi);
+
+    // warm kiln light (used during firing)
+    const kiln = new THREE.PointLight(0xff6a1e, 0, 10, 2);
+    kiln.position.set(0, 2.2, 2.4);
+    scene.add(kiln);
+
+    // ── ground + wheel head ──────────────────────────────────────────
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(18, 72),
+      new THREE.MeshStandardMaterial({ color: 0x241c15, roughness: 0.96, metalness: 0 })
+    );
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.03; ground.receiveShadow = true;
+    scene.add(ground);
+
+    function wheelTexture() {
+      const c = document.createElement('canvas'); c.width = c.height = 512;
+      const g = c.getContext('2d');
+      const grd = g.createRadialGradient(256, 256, 0, 256, 256, 256);
+      grd.addColorStop(0, '#5a3a28'); grd.addColorStop(0.5, '#4a2e20'); grd.addColorStop(1, '#38231a');
+      g.fillStyle = grd; g.fillRect(0, 0, 512, 512);
+      g.globalCompositeOperation = 'multiply';
+      for (let a = 0; a < Math.PI * 14; a += 0.02) {           // concentric throwing grooves
+        const r = a / (Math.PI * 14) * 250;
+        const x = 256 + Math.cos(a) * r, y = 256 + Math.sin(a) * r;
+        g.fillStyle = `rgba(30,18,12,${0.03 + Math.random() * 0.04})`;
+        g.fillRect(x, y, 2, 2);
+      }
+      const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
+    }
+    const head = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.75, 2.85, 0.28, 120),
+      new THREE.MeshStandardMaterial({ map: wheelTexture(), color: 0xffffff, roughness: 0.5, metalness: 0.08 })
+    );
+    head.position.y = -0.14; head.receiveShadow = true; head.castShadow = true;
+    scene.add(head);
+
+    // thin wet slip ring on the wheel surface
+    const slip = new THREE.Mesh(
+      new THREE.RingGeometry(0.1, 2.6, 96),
+      new THREE.MeshPhysicalMaterial({ color: 0x6b4a34, roughness: 0.25, metalness: 0, clearcoat: 0.8, clearcoatRoughness: 0.2, transparent: true, opacity: 0.5 })
+    );
+    slip.rotation.x = -Math.PI / 2; slip.position.y = 0.002;
+    scene.add(slip);
+
+    // ── clay material ────────────────────────────────────────────────
+    const clayMat = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(0x9c6f52),
+      roughness: 0.52, metalness: 0.0,
+      clearcoat: 0.55, clearcoatRoughness: 0.32,
+      sheen: 0.25, sheenRoughness: 0.75, sheenColor: new THREE.Color(0x3a2418),
+      emissive: new THREE.Color(0xff5a1e), emissiveIntensity: 0.0,
+      envMapIntensity: 0.7, side: THREE.DoubleSide
+    });
+    const clay = new THREE.Mesh(new THREE.LatheGeometry([new THREE.Vector2(0.01, 0), new THREE.Vector2(0.01, 1)], 8), clayMat);
+    clay.castShadow = true; clay.receiveShadow = true;
+    scene.add(clay);
+
+    // ── clay shape parameters (the vessel is parametric + forgiving) ──
+    const P = {
+      H: 1.5, baseR: 1.05, bellyR: 1.2, bellyY: 0.42, rimR: 1.0,
+      wall: 0.3, open: 0, floor: 0.3, rings: 9, ringAmp: 0.0, wobble: 0.14
+    };
+    let dirty = true;
+    const mark = () => { dirty = true; };
+
+    function outerR(t) {
+      let r;
+      if (t <= P.bellyY) r = lerp(P.baseR, P.bellyR, smooth(0, P.bellyY, t));
+      else r = lerp(P.bellyR, P.rimR, smooth(P.bellyY, 1, t));
+      r += Math.sin(t * Math.PI * P.rings) * P.ringAmp * smooth(0, 0.14, t) * smooth(1, 0.82, t);
+      return Math.max(r, 0.03);
+    }
+
+    function rebuild() {
+      const N = 96, H = P.H, pts = [];
+      pts.push(new THREE.Vector2(0, 0));              // base center
+      pts.push(new THREE.Vector2(outerR(0), 0));      // out along the base
+      for (let i = 1; i <= N; i++) { const t = i / N; pts.push(new THREE.Vector2(outerR(t), t * H)); }
+
+      if (P.open > 0.01) {
+        const cavityFloorY = H - P.open * (H - P.floor);
+        pts.push(new THREE.Vector2(Math.max(outerR(1) - P.wall, 0.02), H)); // across the rim
+        for (let i = 1; i <= N; i++) {
+          const f = i / N;
+          const y = H - (H - cavityFloorY) * f;       // rim down to cavity floor
+          const t = y / H;
+          let ir = Math.max(outerR(t) - P.wall, 0.02);
+          ir *= smooth(0, 0.22, (y - cavityFloorY) / Math.max(H - cavityFloorY, 0.001)); // taper to center at floor
+          pts.push(new THREE.Vector2(Math.max(ir, 0), y));
+        }
+        pts.push(new THREE.Vector2(0, cavityFloorY));  // inner floor center
+      } else {
+        pts.push(new THREE.Vector2(0, H));             // solid domed lump
+      }
+
+      const geo = new THREE.LatheGeometry(pts, 180);
+      geo.computeVertexNormals();
+      clay.geometry.dispose();
+      clay.geometry = geo;
+    }
+
+    // ── material states (wet → dry → bisque → glazed) ────────────────
+    const MAT = {
+      wet:    { color: 0x9c6f52, rough: 0.52, cc: 0.55, ccr: 0.32, env: 0.7 },
+      dry:    { color: 0xc3a584, rough: 0.9,  cc: 0.04, ccr: 0.6,  env: 0.3 },
+      bisque: { color: 0xb05f3d, rough: 0.86, cc: 0.05, ccr: 0.6,  env: 0.35 },
+      glazed: { color: 0x3f6f74, rough: 0.12, cc: 1.0,  ccr: 0.08, env: 1.1 }
+    };
+    let matCur = { ...MAT.wet, color: new THREE.Color(MAT.wet.color) };
+    let matTarget = { ...MAT.wet, color: new THREE.Color(MAT.wet.color) };
+    let glazeColor = new THREE.Color(0x3f6f74);
+
+    function setMaterial(name) {
+      const m = MAT[name];
+      matTarget = { ...m, color: name === 'glazed' ? glazeColor.clone() : new THREE.Color(m.color) };
+    }
+    function stepMaterial(dt) {
+      const k = 1 - Math.exp(-dt * 1.6);
+      matCur.color.lerp(matTarget.color, k);
+      matCur.rough = lerp(matCur.rough, matTarget.rough, k);
+      matCur.cc = lerp(matCur.cc, matTarget.cc, k);
+      matCur.ccr = lerp(matCur.ccr, matTarget.ccr, k);
+      matCur.env = lerp(matCur.env, matTarget.env, k);
+      clayMat.color.copy(matCur.color);
+      clayMat.roughness = matCur.rough;
+      clayMat.clearcoat = matCur.cc;
+      clayMat.clearcoatRoughness = matCur.ccr;
+      clayMat.envMapIntensity = matCur.env;
+    }
+
+    // ── steps ────────────────────────────────────────────────────────
+    const STEPS = [
+      { id: 'center',    title: 'Center the clay',  hint: 'Press and hold to settle the clay on the wheel' },
+      { id: 'open',      title: 'Open the clay',    hint: 'Press into the center and draw downward' },
+      { id: 'pull',      title: 'Pull the walls',   hint: 'Draw upward along the wall to raise it, outward to widen' },
+      { id: 'refine',    title: 'Refine the form',  hint: 'Soft strokes to settle the curve' },
+      { id: 'dry',       title: 'Let it dry',       hint: 'The clay firms and lightens to bone dry' },
+      { id: 'bisque',    title: 'Bisque fire',      hint: 'The first firing hardens the clay' },
+      { id: 'glaze',     title: 'Glaze',            hint: 'Choose a glaze and coat the piece' },
+      { id: 'glazefire', title: 'Glaze fire',       hint: 'The glaze melts to glass and sets the color' },
+      { id: 'done',      title: 'Finished',         hint: 'Made on the wheel' }
+    ];
+    const CAM = {
+      center:    { pos: [0, 3.4, 9.0],   tgt: [0, 1.0, 0] },
+      open:      { pos: [0, 6.2, 6.2],   tgt: [0, 1.5, 0] },
+      pull:      { pos: [0.4, 3.0, 9.4], tgt: [0, 2.0, 0] },
+      refine:    { pos: [2.4, 2.9, 8.4], tgt: [0, 2.0, 0] },
+      dry:       { pos: [3.0, 3.2, 8.0], tgt: [0, 1.9, 0] },
+      bisque:    { pos: [2.6, 3.0, 7.4], tgt: [0, 1.9, 0] },
+      glaze:     { pos: [2.8, 3.0, 8.0], tgt: [0, 2.0, 0] },
+      glazefire: { pos: [2.6, 3.0, 7.4], tgt: [0, 2.0, 0] },
+      done:      { pos: [3.6, 3.1, 8.0], tgt: [0, 2.0, 0] }
+    };
+
+    let stepIdx = 0;
+    let fired = false;         // per-step fire toggle
+    const camPos = new THREE.Vector3(0, 3.4, 9);
+    const camTgt = new THREE.Vector3(0, 1.0, 0);
+
+    const elCount = document.getElementById('step-count');
+    const elTitle = document.getElementById('step-title');
+    const elHint = document.getElementById('hint');
+    const elActions = document.getElementById('actions');
+
+    function setStep(i) {
+      stepIdx = clamp(i, 0, STEPS.length - 1);
+      const s = STEPS[stepIdx];
+      fired = false;
+      elCount.textContent = `Step ${stepIdx + 1} of ${STEPS.length}`;
+      // soft text swap
+      elTitle.classList.add('swap'); elHint.classList.add('swap');
+      setTimeout(() => {
+        elTitle.textContent = s.title; elHint.textContent = s.hint;
+        elTitle.classList.remove('swap'); elHint.classList.remove('swap');
+      }, 260);
+      // camera framing
+      const c = CAM[s.id];
+      camPos.set(...c.pos); camTgt.set(...c.tgt);
+      buildActions();
+    }
+
+    function nextBtn(label = 'Next') {
+      const b = document.createElement('button');
+      b.className = 'btn primary'; b.textContent = label;
+      b.onclick = () => setStep(stepIdx + 1);
+      return b;
+    }
+
+    function buildActions() {
+      const s = STEPS[stepIdx];
+      elActions.innerHTML = '';
+      if (s.id === 'dry') {
+        const b = document.createElement('button'); b.className = 'btn primary'; b.textContent = 'Let it dry';
+        b.onclick = () => { setMaterial('dry'); b.disabled = true; setTimeout(() => elActions.appendChild(nextBtn()), 900); };
+        elActions.appendChild(b);
+      } else if (s.id === 'bisque' || s.id === 'glazefire') {
+        const b = document.createElement('button'); b.className = 'btn primary'; b.textContent = 'Into the kiln';
+        b.onclick = () => startFiring(s.id, b);
+        elActions.appendChild(b);
+      } else if (s.id === 'glaze') {
+        const glazes = [
+          { name: 'Celadon', c: 0x7fa08c }, { name: 'Tenmoku', c: 0x3a241a },
+          { name: 'Cobalt', c: 0x2f4b86 }, { name: 'Ash', c: 0x9aa39a }, { name: 'Oxblood', c: 0x7a2a26 }
+        ];
+        const row = document.createElement('div'); row.style.display = 'flex'; row.style.gap = '10px'; row.style.alignItems = 'center';
+        glazes.forEach((g, gi) => {
+          const sw = document.createElement('div'); sw.className = 'swatch'; sw.title = g.name;
+          sw.style.background = '#' + g.c.toString(16).padStart(6, '0');
+          sw.onclick = () => {
+            row.querySelectorAll('.swatch').forEach(x => x.classList.remove('active'));
+            sw.classList.add('active');
+            glazeColor.setHex(g.c);
+            // matte glaze coat preview (gloss comes after the glaze fire)
+            matTarget = { color: glazeColor.clone(), rough: 0.72, cc: 0.1, ccr: 0.5, env: 0.5 };
+            if (!elActions.querySelector('.next-holder')) {
+              const h = document.createElement('span'); h.className = 'next-holder'; h.appendChild(nextBtn());
+              elActions.appendChild(h);
+            }
+          };
+          row.appendChild(sw);
+        });
+        elActions.appendChild(row);
+      } else if (s.id === 'done') {
+        const b = document.createElement('button'); b.className = 'btn'; b.textContent = 'Make another';
+        b.onclick = resetAll;
+        elActions.appendChild(b);
+      } else {
+        // center / open / pull / refine — advance when ready (always allowed, gentle)
+        elActions.appendChild(nextBtn());
+      }
+    }
+
+    // ── firing animation ─────────────────────────────────────────────
+    let firing = 0;            // 0..1 heat envelope
+    let firingActive = false;
+    function startFiring(which, btn) {
+      if (fired) return; fired = true; btn.disabled = true;
+      firingActive = true;
+      setMaterial(which === 'bisque' ? 'bisque' : 'glazed');
+      setTimeout(() => { firingActive = false; }, 2600);
+      setTimeout(() => elActions.appendChild(nextBtn()), 3000);
+    }
+
+    // ── interaction ──────────────────────────────────────────────────
+    const cursor = document.getElementById('cursor');
+    const ray = new THREE.Raycaster();
+    const planeZ0 = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+    let pressing = false, last = null;
+
+    function pick(ev) {
+      const ndc = new THREE.Vector2((ev.clientX / innerWidth) * 2 - 1, -((ev.clientY / innerHeight) * 2 - 1));
+      ray.setFromCamera(ndc, camera);
+      const hit = new THREE.Vector3();
+      if (ray.ray.intersectPlane(planeZ0, hit)) return { x: Math.abs(hit.x), y: hit.y, sx: hit.x };
+      return null;
+    }
+
+    addEventListener('pointermove', (ev) => {
+      cursor.style.left = ev.clientX + 'px'; cursor.style.top = ev.clientY + 'px';
+      if (!pressing) return;
+      const p = pick(ev); if (!p) return;
+      shape(p);
+      last = p;
+      playFriction();
+    });
+    addEventListener('pointerdown', (ev) => {
+      if (ev.target.closest('.ctrl') || ev.target.closest('.btn') || ev.target.closest('.swatch')) return;
+      pressing = true; cursor.classList.add('touching');
+      last = pick(ev);
+      if (STEPS[stepIdx].id === 'open' && last) openStart = last.y;
+      ensureAudio();
+    });
+    addEventListener('pointerup', () => { pressing = false; cursor.classList.remove('touching'); last = null; });
+
+    let openStart = 0;
+    function shape(p) {
+      const id = STEPS[stepIdx].id;
+      if (id === 'center') {
+        P.wobble = Math.max(0, P.wobble - 0.012);          // settle the wobble
+      } else if (id === 'open') {
+        // drawing downward from the top opens the cavity
+        if (last) {
+          const dDown = (last.y - p.y);                     // positive when moving down
+          if (dDown > 0) { P.open = clamp(P.open + dDown * 0.5, 0, 1); mark(); }
+        }
+      } else if (id === 'pull') {
+        if (last) {
+          const dUp = (p.y - last.y);                        // positive when moving up
+          if (dUp > 0) { P.H = clamp(P.H + dUp * 0.6, 1.2, 3.3); P.ringAmp = Math.min(0.012, P.ringAmp + dUp * 0.004); mark(); }
+          // horizontal position shapes the belly / rim at the touch height
+          const t = clamp(p.y / P.H, 0, 1);
+          const targetR = clamp(p.x, 0.5, 2.35);
+          if (t > 0.6) P.rimR = lerp(P.rimR, targetR, 0.08);
+          else { P.bellyR = lerp(P.bellyR, targetR, 0.08); P.bellyY = lerp(P.bellyY, clamp(t, 0.2, 0.7), 0.05); }
+          P.wall = Math.max(0.14, P.wall - Math.max(dUp, 0) * 0.03);   // walls thin as they rise
+          mark();
+        }
+      } else if (id === 'refine') {
+        // soft smoothing — ease the rings away, gently nudge the belly height
+        P.ringAmp *= 0.92;
+        if (last) { const t = clamp(p.y / P.H, 0.2, 0.75); P.bellyY = lerp(P.bellyY, t, 0.04); }
+        mark();
+      }
+    }
+
+    // ── audio (ambient + throwing friction) ──────────────────────────
+    let AC = null, master = null, frictionGain = null, frictionFilter = null, soundOn = false, lastFriction = 0;
+    function ensureAudio() {
+      if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+      AC = new (window.AudioContext || window.webkitAudioContext)();
+      master = AC.createGain(); master.gain.value = soundOn ? 1 : 0; master.connect(AC.destination);
+      // soft room tone
+      const noise = (secs, color) => {
+        const n = Math.floor(AC.sampleRate * secs), buf = AC.createBuffer(1, n, AC.sampleRate), d = buf.getChannelData(0);
+        let a = 0; for (let i = 0; i < n; i++) { const w = Math.random() * 2 - 1; a = (a + w * color) * 0.996; d[i] = a; }
+        let mx = 0; for (let i = 0; i < n; i++) mx = Math.max(mx, Math.abs(d[i])); const g = mx > 0 ? 0.5 / mx : 1;
+        for (let i = 0; i < n; i++) d[i] *= g; return buf;
+      };
+      const room = AC.createBufferSource(); room.buffer = noise(8, 0.02); room.loop = true;
+      const rf = AC.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 520;
+      const rg = AC.createGain(); rg.gain.value = 0.02;
+      room.connect(rf); rf.connect(rg); rg.connect(master); room.start();
+      // throwing friction (wet clay) — gated by movement
+      const fr = AC.createBufferSource(); fr.buffer = noise(4, 0.03); fr.loop = true;
+      frictionFilter = AC.createBiquadFilter(); frictionFilter.type = 'lowpass'; frictionFilter.frequency.value = 700;
+      const f2 = AC.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.value = 1800;
+      frictionGain = AC.createGain(); frictionGain.gain.value = 0;
+      fr.connect(frictionFilter); frictionFilter.connect(f2); f2.connect(frictionGain); frictionGain.connect(master); fr.start();
+    }
+    function playFriction() { lastFriction = performance.now(); }
+    function audioFrame() {
+      if (!AC || !frictionGain) return;
+      const moving = pressing && (performance.now() - lastFriction < 90);
+      const g = moving ? 0.06 : 0;
+      frictionGain.gain.setTargetAtTime(g, AC.currentTime, 0.08);
+      if (frictionFilter) frictionFilter.frequency.setTargetAtTime(600 + P.H * 220, AC.currentTime, 0.2);
+    }
+
+    // ── corner chrome wiring ─────────────────────────────────────────
+    const moodBtn = document.getElementById('mood-toggle');
+    let mood = 0, moodTarget = 0;         // 0 evening, 1 morning
+    moodBtn.onclick = () => { moodTarget = moodTarget > 0.5 ? 0 : 1; moodBtn.classList.toggle('morning', moodTarget > 0.5); };
+
+    const soundBtn = document.getElementById('sound-toggle');
+    soundBtn.onclick = () => { ensureAudio(); soundOn = !soundOn; soundBtn.classList.toggle('muted', !soundOn); if (master) master.gain.setTargetAtTime(soundOn ? 1 : 0, AC.currentTime, 0.4); };
+
+    document.getElementById('restart').onclick = resetAll;
+
+    function resetAll() {
+      Object.assign(P, { H: 1.5, baseR: 1.05, bellyR: 1.2, bellyY: 0.42, rimR: 1.0, wall: 0.3, open: 0, floor: 0.3, rings: 9, ringAmp: 0, wobble: 0.14 });
+      matCur = { ...MAT.wet, color: new THREE.Color(MAT.wet.color) };
+      matTarget = { ...MAT.wet, color: new THREE.Color(MAT.wet.color) };
+      mark(); setStep(0);
+    }
+
+    // ── mood (evening ↔ morning) transition ──────────────────────────
+    function applyMood(m) {
+      scene.fog.color.copy(EVENING_FOG).lerp(MORNING_FOG, m);
+      renderer.setClearColor(scene.fog.color);
+      renderer.toneMappingExposure = lerp(1.0, 1.12, m);
+      key.intensity = lerp(2.3, 2.0, m);
+      rim.intensity = lerp(0.85, 0.3, m);
+      fill.intensity = lerp(0.45, 0.8, m);
+      hemi.intensity = lerp(0.45, 0.75, m);
+      scene.environmentIntensity = lerp(0.55, 0.78, m);
+      document.body.classList.toggle('morning', m > 0.5);
+    }
+
+    // ── intro fade ───────────────────────────────────────────────────
+    let introGone = false;
+    function dismissIntro() {
+      if (introGone) return; introGone = true;
+      setTimeout(() => document.getElementById('intro').classList.add('fade'), 300);
+    }
+    addEventListener('pointerdown', dismissIntro, { once: true });
+
+    // ── resize ───────────────────────────────────────────────────────
+    addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+
+    // ── grain ────────────────────────────────────────────────────────
+    const gc = document.getElementById('grain'), gctx = gc.getContext('2d');
+    function grain() {
+      gc.width = 160; gc.height = 160;
+      const img = gctx.createImageData(160, 160);
+      for (let i = 0; i < img.data.length; i += 4) {
+        const v = 100 + Math.random() * 110;
+        img.data[i] = v * 1.05; img.data[i + 1] = v * 0.98; img.data[i + 2] = v * 0.9; img.data[i + 3] = 255;
+      }
+      gctx.putImageData(img, 0, 0);
+      gc.style.width = '100%'; gc.style.height = '100%';
+    }
+    grain(); setInterval(grain, 90);
+
+    // ── main loop ────────────────────────────────────────────────────
+    const clock = new THREE.Clock();
+    let spin = 0;
+    function frame() {
+      requestAnimationFrame(frame);
+      const dt = Math.min(0.05, clock.getDelta());
+      spin += dt * 1.25;
+
+      if (dirty) { rebuild(); dirty = false; }
+
+      head.rotation.y = spin; clay.rotation.y = spin; slip.rotation.z = spin;
+
+      // centering wobble (eased out as you settle it)
+      const w = P.wobble * Math.sin(spin * 2.0);
+      clay.rotation.z = w * 0.07; clay.position.x = w * 0.05;
+
+      // camera follows the piece as it grows
+      const framedY = clamp(P.H * 0.55, 0.9, 2.4);
+      const tgt = camTgt.clone(); tgt.y = lerp(tgt.y, framedY, 0.5);
+      const drift = new THREE.Vector3(Math.sin(spin * 0.1) * 0.12, Math.sin(spin * 0.08) * 0.07, Math.cos(spin * 0.09) * 0.1);
+      camera.position.lerp(camPos.clone().add(drift), 1 - Math.exp(-dt * 2.2));
+      const look = new THREE.Vector3(); look.lerpVectors(camera.__look || tgt, tgt, 1 - Math.exp(-dt * 2.2));
+      camera.__look = look; camera.lookAt(look);
+
+      // material + firing glow
+      stepMaterial(dt);
+      if (firingActive) firing = Math.min(1, firing + dt * 0.9); else firing = Math.max(0, firing - dt * 0.7);
+      const glow = Math.sin(Math.min(firing, 1) * Math.PI);      // rise then settle
+      kiln.intensity = glow * 5.5;
+      clayMat.emissiveIntensity = glow * 0.7;
+
+      // mood
+      if (Math.abs(mood - moodTarget) > 0.001) { mood = lerp(mood, moodTarget, 1 - Math.exp(-dt * 1.4)); applyMood(mood); }
+
+      audioFrame();
+      renderer.render(scene, camera);
+    }
+
+    applyMood(0);
+    setStep(0);
+    rebuild();
+    frame();
+
+    // debug hook
+    window.__studio = { P, setStep: (i) => setStep(i), setMood: (m) => { moodTarget = m ? 1 : 0; moodBtn.classList.toggle('morning', !!m); } };
+  </script>
+</body>
+</html>
